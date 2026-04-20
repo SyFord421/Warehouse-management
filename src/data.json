@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Buku Rust",
+    "price": 50000.0,
+    "stock": 10
+  },
+  {
+    "name": "Earphone",
+    "price": 300000.0,
+    "stock": 1
+  }
+]
