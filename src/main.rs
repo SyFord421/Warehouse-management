@@ -118,7 +118,19 @@ fn request_input(massage: &str) -> String {
         .read_line(&mut input)
         .expect("[×] Gagal Membaca input");
     input.trim().to_string()
+
 }
+
+fn request_number<T: FromStr>(message: &str) -> T {
+    loop {
+        let input = request_input(message);
+        match input.parse::<T>() {
+            Ok(num) => return num,
+            Err(_) => println!("{}", "[!] Masukan anggka yang benar".red()),
+        }
+    }
+}
+
 
 fn main() {
     let mut warehouse = Inventory::load_from_file(FILE_DB);
@@ -137,21 +149,8 @@ fn main() {
             "1" => {
                 let name = request_input("Nama Barang");
                 //Validasi Input agar tidak asal ketik
-                let price: f64 = loop {
-                    let p_str = request_input("Harga Barang");
-                    match p_str.parse::<f64>() {
-                        Ok(num) if num > 0.0 => break num,
-                        _ => println!("{}", "[!] Masukan Angka Dengan benar".red()),
-                    }
-                };
-
-                let stock: u32 = loop {
-                    let s_int = request_input("Masukan Stock");
-                    match s_int.parse::<u32>() {
-                        Ok(num) => break num,
-                        _ => println!("{}", "[!] Stock Harus Angka bulat".red()),
-                    }
-                };
+                let price: f64 = request_number("Masukan Harga");
+                let stock: u32 = request_number("Masukan Stock");
                 warehouse.add_items(Item::new(name, price, stock));
                 warehouse.save_to_file(FILE_DB);
                 println!("Barang Telah Di Tambahkan");
