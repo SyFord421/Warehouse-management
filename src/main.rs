@@ -1,6 +1,5 @@
 use colored::*;
 use serde::{Deserialize, Serialize};
-use serde_json;
 use std::io::{self, Write, stdout}; //biar bias mewarnai text
 use std::str::FromStr;
 const FILE_DB: &str = "Data.json";
@@ -55,19 +54,19 @@ impl Inventory {
     }
     //Method untuk mencari Item dengan nama
     fn find_items(&self, name: &str) {
-        let mut found = false;
-        for item in &self.items {
-            if item.name.to_lowercase() == name.to_lowercase() {
-                println!(
-                    "Ditemukan! Name: {} | Price: {} | Stock: {}",
-                    item.name, item.price, item.stock
-                );
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            println!("[×] Barang Tidak Ditemukan");
+        let found = self
+            .items
+            .iter()
+            .find(|i| i.name.to_lowercase() == name.to_lowercase());
+        match found {
+            Some(item) => println!(
+                "{} Name: {} | Price: {} | Stock: {} |",
+                "Ditemukan".green().bold(),
+                item.name,
+                item.price,
+                item.stock
+            ),
+            None => println!("{}", "[×] Barang tidak di temukan".red()),
         }
     }
     //Method Untuk menampilkan per item stock dan menjumlahkan total semuanya
@@ -89,7 +88,7 @@ impl Inventory {
             println!("[✓] Data Berhasil di muat");
             return Self { items };
         }
-        println!("[!] Data masih kosong..");
+        println!("{}", "[!] Data masih kosong".red());
         Self::new()
     }
 
@@ -102,13 +101,65 @@ impl Inventory {
             .retain(|item| item.name.to_lowercase() != name.to_lowercase());
         //memastikan barang sudah di keluarkan atau belum
         if self.items.len() < initial_len {
-            self.save_to_file(FILE_DB);
             println!("[✓] Barang Berhasil Di Keluarkan");
         } else {
             println!("[×] Yah, barang '{}' emang nggak ada dari awal 🤭", name);
         }
     }
-}
+    //method untuk update Stock dan menambahkan barang jika belum ada.
+    fn update_or_add(&mut self, name: String, price: f64, add_stock: u32) {
+        let item_found = self
+            .items
+            .iter_mut()
+            .find(|i| i.name.to_lowercase() == name.to_lowercase());
+        match item_found {
+            Some(item) => {
+                item.stock += add_stock;
+                println!(
+                    "{} Stok {} ditambah {}! Total jadi: {}",
+                    "Update:".blue(),
+                    item.name,
+                    add_stock,
+                    item.stock
+                );
+                println!("{}", "[✓] Jumlah stock berhasil di perbarui".green());
+            }
+            None => {
+                self.items.push(Item::new(name, price, add_stock));
+                println!("{}", "Barang Baru Berhasil Ditambahkan!".green());
+                println!("{}", "[✓] Item berhasil di tambahkan".green());
+            }
+        }
+    }
+    
+    fn sell_item(&mut self, name: &str, quantity: u32){
+        let found = self.items.iter_mut().find(|i| i.name.to_lowercase() == name.to_lowercase());
+        match found {
+            Some(item) => {
+                if item.stock >= quantity {
+                    item.stock -= quantity;
+                    println!("{} Berhasil menjual {} {}. Sisa stok: {}", "Success:".green(), quantity, item.name, item.stock);
+                    println!("Total: {}", item.price * quantity as f64);
+                    self.save_to_file(FILE_DB);
+                }else{
+                    println!("{} Stok cuma ada {}, nggak cukup buat jual {}", "Gagal".red(), item.stock, quantity);
+                }
+            },
+            None => println!("{}", "[!] Barang tidak di temukan".red()),
+        }
+    }
+    fn check_low_stock(&self, limit:u32){
+            let low_items: Vec<&Item> = self.items.iter().filter(|i| i.stock <= limit).collect();
+            if low_items.is_empty(){
+                println!("[✓] Stock Masih Aman");
+            }else{
+                println!("---Stock Tipis---");
+                for item in low_items{
+                    println!("-{} Stock: {}", item.name, item.stock);
+                }
+            }
+        }
+    }
 
 fn request_input(massage: &str) -> String {
     print!("{} | ", massage);
@@ -118,7 +169,6 @@ fn request_input(massage: &str) -> String {
         .read_line(&mut input)
         .expect("[×] Gagal Membaca input");
     input.trim().to_string()
-
 }
 
 fn request_number<T: FromStr>(message: &str) -> T {
@@ -131,19 +181,22 @@ fn request_number<T: FromStr>(message: &str) -> T {
     }
 }
 
-
 fn main() {
     let mut warehouse = Inventory::load_from_file(FILE_DB);
+    let border = "-".repeat(30);
     loop {
-        println!("\n{}", "===========================\n".magenta());
-        println!("{}", "---warehouse Management---".white().bold());
-        println!("\n{}", "===========================".magenta());
+        println!("\n{}", border.magenta());
+        println!("\n{}", "---warehouse Management---".white().bold());
+        println!("\n{}", border.magenta());
         println!("{}", "[1] Tambah Barang".green());
         println!("{}", "[2] Lihat Stock".blue());
-        println!("{}", "[3] Hapus Barang".red());
-        println!("{}", "[4] Hitung Aset".yellow());
-        println!("{}", "[5] Cari Barang". bright_blue());
-        println!("{}", "[6] Keluar".white());
+        println!("{}", "[3] Tambah atau update".white());
+        println!("{}", "[4] Hapus Barang".red());
+        println!("{}", "[5] Hitung Aset".yellow());
+        println!("{}", "[6] Cari Barang".bright_blue());
+        println!("{}", "[7] Jual Barang".green());
+        println!("{}", "[8] Check Stok tipis".blue());
+        println!("{}", "[9] Keluar".white());
         let choice = request_input("Masukan Pilihan");
         match choice.as_str() {
             "1" => {
@@ -157,15 +210,33 @@ fn main() {
             }
             "2" => warehouse.show_all_items(),
             "3" => {
+                let name = request_input("masukan nama barang");
+                let price = request_number("Masukan harga barang");
+                let add_stock = request_number("Masukan stock");
+                warehouse.update_or_add(name, price, add_stock);
+                warehouse.save_to_file(FILE_DB);
+            }
+            "4" => {
                 let name = request_input("Nama Barang");
                 warehouse.remove_item(&name);
+                warehouse.save_to_file(FILE_DB);
             }
-            "4" => warehouse.calculate_all(),
-            "5" => {
+            "5" => warehouse.calculate_all(),
+            "6" => {
                 let name = request_input("Nama Barang");
                 warehouse.find_items(&name);
+            },
+            "7" => {
+            warehouse.show_all_items();
+            let name = request_input("Nama barang");
+            let qty = request_number("Jumlah barang");
+            warehouse.sell_item(&name, qty);
             }
-            "6" => break,
+            "8" => {
+                let limit = request_number("Masukan Jumlah Limit");
+                warehouse.check_low_stock(limit);
+            }
+            "9" => break,
             _ => println!("{}", "[!] Pilihan Tidak Valid".red()),
         }
     }
