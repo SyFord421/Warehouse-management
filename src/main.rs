@@ -2,7 +2,7 @@ use colored::*;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write, stdout}; //biar bias mewarnai text
 use std::str::FromStr;
-const FILE_DB: &str = "Data.json";
+const FILE_DB: &str = "data.json";
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Item {
@@ -30,20 +30,26 @@ impl Inventory {
         }
     }
 
-    fn save_to_file(&self, filename: &str) {
-        //Mengubah Stuct jadi string json
-        let json = serde_json::to_string_pretty(&self.items).unwrap();
-        //tulis ke file di memori device
-        std::fs::write(filename, json).expect("Gagal menyimpan");
-        println!("Berhasil menyimpan {}", filename);
+    fn save_to_file(&self, filename: &str){
+        match serde_json::to_string_pretty(&self.items){
+            Ok(json) =>{
+                if let Err(e) = std::fs::write(filename, json){
+                    println!("{} Gagal simpan file {}", "[×]".red(), e);
+                }else{
+                    println!("{} Data Berhasil di simpan", "[✓]".green());
+                }
+            }
+            Err(e) => println!("{} Gagal saat mengkonversi Data: {}", "[]".red(), e),
+        }
     }
+    
     //Method menambahkan item kedalam Vector
-    fn add_items(&mut self, item: Item) {
+    fn add_items(&mut self, item: Item){
         self.items.push(item);
-        println!("[✓] Item berhasil Di tambahkan");
+        println!("{} Item berhasil Di tambahkan", "[✓]".green());
     }
     //Method untuk menampilkan Item yang tersimpan
-    fn show_all_items(&self) {
+    fn show_all_items(&self){
         println!("----warehouse----");
         for item in &self.items {
             println!(
@@ -53,24 +59,25 @@ impl Inventory {
         }
     }
     //Method untuk mencari Item dengan nama
-    fn find_items(&self, name: &str) {
+    fn find_items(&self, name: &str){
         let found = self
-            .items
-            .iter()
-            .find(|i| i.name.to_lowercase() == name.to_lowercase());
-        match found {
-            Some(item) => println!(
-                "{} Name: {} | Price: {} | Stock: {} |",
-                "Ditemukan".green().bold(),
+        .items
+        .iter()
+        .find(|i| i.name.to_lowercase() == name.to_lowercase());
+        if let Some(item) = found {
+        println!(
+        "{} Name: {} | Price: {} | Stock: {} |",
+        "Ditemukan".green().bold(),
                 item.name,
                 item.price,
                 item.stock
-            ),
-            None => println!("{}", "[×] Barang tidak di temukan".red()),
-        }
+                );
+            } else {
+            println!("{}", "[×] Barang tidak di temukan".red());
+            }
     }
     //Method Untuk menampilkan per item stock dan menjumlahkan total semuanya
-    fn calculate_all(&self) {
+    fn calculate_all(&self){
         let mut total_value: f64 = 0.0;
         for item in &self.items {
             let calculate = item.price * item.stock as f64;
@@ -81,28 +88,31 @@ impl Inventory {
     }
 
     fn load_from_file(filename: &str) -> Self {
-        //membaca isi menjadi string
-        if let Ok(content) = std::fs::read_to_string(filename) {
-            //mengubah String kembali menjadi Vector
-            let items: Vec<Item> = serde_json::from_str(&content).unwrap_or(Vec::new());
-            println!("[✓] Data Berhasil di muat");
-            return Self { items };
+        if let Ok(content) = std::fs::read_to_string(filename){
+            match serde_json::from_str::<Vec<Item>>(&content){
+                Ok(items) =>{
+                    println!("{} Berhasil Memuat Data", "[✓]".green());
+                    return Self {items};
+                },
+                Err(_) => {
+                    println!("{} Format Data Rusak, memulai data baru", "[!]".yellow());
+                }
+            }
         }
-        println!("{}", "[!] Data masih kosong".red());
         Self::new()
     }
 
     //method untuk menghapus barang
-    fn remove_item(&mut self, name: &str) {
+    fn remove_item(&mut self, name: &str){
         //untuk menghitung total item yang tersimpan
         let initial_len = self.items.len();
         //logikanya simpan semua barang yang tidak sama dengan yang di cari
         self.items
             .retain(|item| item.name.to_lowercase() != name.to_lowercase());
         //memastikan barang sudah di keluarkan atau belum
-        if self.items.len() < initial_len {
+        if self.items.len() < initial_len{
             println!("[✓] Barang Berhasil Di Keluarkan");
-        } else {
+        }else{
             println!("[×] Yah, barang '{}' emang nggak ada dari awal 🤭", name);
         }
     }
@@ -122,7 +132,7 @@ impl Inventory {
                     add_stock,
                     item.stock
                 );
-                println!("{}", "[✓] Jumlah stock berhasil di perbarui".green());
+                println!("{} Jumlah stock berhasil di perbarui", "[✓]".green());
             }
             None => {
                 self.items.push(Item::new(name, price, add_stock));
