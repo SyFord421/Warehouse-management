@@ -1,7 +1,7 @@
-[
-  {
-    "name": "stella",
-    "price": 10000.0,
+{
+  "Stella": {
+    "name": "Stella",
+    "price": 1000000.0,
     "stock": 1
   }
-]
+}
