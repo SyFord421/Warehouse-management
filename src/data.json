@@ -1,7 +1,7 @@
 {
-  "Stella": {
-    "name": "Stella",
-    "price": 1000000.0,
+  "stella": {
+    "name": "stella",
+    "price": 100000000.0,
     "stock": 1
   }
 }

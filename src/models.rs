@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 use colored::*;
 use serde_json;
 use std::collections::HashMap;
+use std::fs::OpenOptions;
+use std::io::Write;
+use chrono::Local;//untuk mengambil waktu lokal
 
 #[derive(Serialize, Deserialize, Debug,)]
 //pub biar bisa di gunakan dari luar
@@ -28,6 +31,18 @@ impl Inventory {
             items:HashMap::new(),
         }
     }
+    pub fn log_transaction(&self, massage: &str){
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+        let log_entry = format!("[{}] {}\n", now, massage);
+        let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("history.txt")
+        .expect("Gagal Membuka File Log");
+        file.write_all(log_entry.as_bytes()).expect("Gagal Menuliskan Log");
+    }
+    
+    
     pub fn save_to_file(&self, filename: &str) {
         match serde_json::to_string_pretty(&self.items) {
                 Ok(json) => {
@@ -105,9 +120,14 @@ impl Inventory {
     }
     
     pub fn update_or_add(&mut self, name: String, price: f64, add_stock: u32){
+        let mut is_updated = false;
         if let Some(item) = self.items.get_mut(&name) {
             item.stock += add_stock;
             println!("{} Stok {} ditambah {}!", "Update:".blue(), item.name, add_stock);
+            is_updated = true;
+            }//nyerah gw mending pake flag sedekah 1 perak nggak bikin rugi
+        if is_updated{
+            self.log_transaction(&format!("Update stok {}: +{}", name, add_stock));
         }else{
             let new_item = Item::new(name.clone(), price, add_stock);
             self.items.insert(name, new_item);
@@ -121,6 +141,8 @@ impl Inventory {
                 if item.stock >= amount{
                     item.stock -= amount;
                     println!("{} Berhasil menjual {} {}. Sisa stok: {}", "Success:".green(), amount, item.name, item.stock);
+                    let massage = format!("Jual {} sebanyak {} unit", item.name, amount);
+                    self.log_transaction(&massage);
                 }else{
                     println!("{} Stok hanya ada {}, Tidak Cukup!", "[×]".red(), item.stock);
                 }
